@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start": "nodemon path.js"
+  },
+  "dependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
