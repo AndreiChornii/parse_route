@@ -49,7 +49,7 @@ activeRoute.parseRouteData = function (urlParts, routeParts) {
         if ((routePart.substring(0, 3) === '{{i') || (routePart.substring(0, 3) === '{{l') || (routePart.substring(0, 3) === '{{c')) {
             parName = routePart.substring(2, routePart.length - 2);
             console.log("parName:" + parName);
-            activeRoute.data.push({[parName]: urlParts[i]}) ;
+            activeRoute.data.push({ [parName]: urlParts[i] });
         }
     }
 };
@@ -80,8 +80,6 @@ activeRoute.parseRouteWithParams = function () {
 };
 activeRoute.parseRoute = function () {
     this.data = [];
-    lang = this.route.substring(0, 3);
-    if ((lang != '/ua') && (lang != '/en')) this.route = '/ua' + this.route;
     if (this.routes.hasOwnProperty(this.route)) {
         console.log('route without params');
         this.action = this.routes[this.route];
@@ -91,24 +89,32 @@ activeRoute.parseRoute = function () {
     }
 };
 activeRoute.requestListener = function (req, res) {
-    res.setHeader("Content-Type", "application/json");
     this.route = decodeURI(req.url);
-    this.parseRoute();
-    console.log(this);
-    if (this.action !== -1) {
-        res.writeHead(200);
-        let rez = {
-            action: "",
-            data: []
-        };
-        // rez.action = this.action;
-        // rez.data = this.data;
-        // rez = '"' + rez + '"';
-        // console.dir(rez);
-        res.end(JSON.stringify({ action: this.action, data: this.data }));
+    lang = this.route.substring(0, 3);
+
+    if ((lang != '/ua') && (lang != '/en')) {
+        this.route = '/ua' + this.route;
+        // console.log('this.route:' + encodeURI(this.route));
+        // console.log('typeof this.route:' + typeof this.route);
+        res.writeHead(301, { 'Location': encodeURI(this.route) });
+        res.end();
     } else {
-        res.writeHead(404);
-        res.end(JSON.stringify({ error: "Resource not found" }));
+        res.setHeader("Content-Type", "application/json");
+        this.parseRoute();
+        console.log(this);
+        if (this.action !== -1) {
+            res.writeHead(200);
+            let rez = {
+                action: "",
+                data: []
+            };
+            // console.dir(rez);
+            res.end(JSON.stringify({ action: this.action, data: this.data }));
+        } else {
+            res.setHeader("Content-Type", "application/json");
+            res.writeHead(404);
+            res.end(JSON.stringify({ error: "Resource not found" }));
+        }
     }
 };
 
