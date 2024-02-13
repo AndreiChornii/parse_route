@@ -7,8 +7,8 @@ const port = 8000;
 
 activeRoute = {};
 activeRoute.routes = {
-    '/ua': 'uaEmpty',
-    '/ua/{{inn}}': 'uaInn',
+    // '/ua': 'uaEmpty',
+    '/ua/{{inn}}': 'inn',
     '/ua/sign_in': 'uaSign_in',
     '/ua/archive/order': 'uaArchiveOrder',
     '/ua/archive/message': 'uaArchiveMessage',
@@ -24,8 +24,8 @@ activeRoute.routes = {
     '/ua/tariffs': 'uaTariffs',
     '/ua/sources': 'uaSources',
     '/ua/about-company': 'uaAbout-company',
-    '/en': 'enEmpty',
-    '/en/{{inn}}': 'https://secure.ubki.ua/b2/ubkireport/opendata/',
+    // '/en': 'enEmpty',
+    '/en/{{inn}}': 'inn',
     '/en/sign_in': 'enSign_in',
     '/en/archive/order': 'enArchiveOrder',
     '/en/archive/message': 'enArchiveMessage',
@@ -47,16 +47,21 @@ activeRoute.action = null;
 activeRoute.data = [];
 activeRoute.dom = null;
 activeRoute.lng = null;
-activeRoute.response = null;
-activeRoute.uaInn = function (){
-    
+// activeRoute.response = null;
+activeRoute.inn = function () {
+    return fetch('https://secure.ubki.ua/b2/ubkireport/opendata/' + this.data[0].inn + '?lng=' + this.lng, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'text/html; charset=utf-8'
+        }
+    });
 }
 activeRoute.changeHtml = function (node, attribute) {
     // console.log("node:" + node + " attribute:" + attribute);
     let links = this.dom.window.document.querySelectorAll(node);
     links.forEach(link => {
         let attr = link.getAttribute(attribute);
-        if(attr && attr.substring(0,1) === '/'){
+        if (attr && attr.substring(0, 1) === '/') {
             attr = 'https://secure.ubki.ua' + attr;
             link.setAttribute(attribute, attr);
         }
@@ -120,21 +125,16 @@ activeRoute.requestListener = async function (req, res) {
     } else {
         this.lng = this.route.substring(1, 3);
         this.parseRoute();
-        console.log(this);
+        // console.log(this);
         if (this.action !== -1) {
             // let url = 'https://secure.ubki.ua/b2/ubkireport/opendata/00906858?lng=UA';
             // this.queryToOrigin();
 
-            this.response = await fetch(this.action + this.data[0].inn + '?lng=' + this.lng, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'text/html; charset=utf-8'
-                }
-            });
+            response = await this[`${this.action}`]();
 
-            if( this.response.ok){
-                let htmlStr = await this.response.text();                
-                
+            if (response.ok) {
+                let htmlStr = await response.text();
+
                 this.dom = new JSDOM(htmlStr);
 
                 const nodeAttr = {
@@ -151,12 +151,12 @@ activeRoute.requestListener = async function (req, res) {
                 let changedHtmlStr = this.dom.serialize();
                 changedHtmlStr = changedHtmlStr.replaceAll('jQuery.ajax({ url: "/', 'jQuery.ajax({ url: "https://secure.ubki.ua/');
                 // console.log('changedHtmlStr:' + changedHtmlStr);
-                res.setHeader("Content-Type", "application/json");
-                res.writeHead(200);
-                res.end(JSON.stringify({ action: this.action, data: this.data, lng: this.lng }));
-                // res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                // res.setHeader("Content-Type", "application/json");
                 // res.writeHead(200);
-                // res.end(changedHtmlStr);
+                // res.end(JSON.stringify({ action: this.action, data: this.data, lng: this.lng }));
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.writeHead(200);
+                res.end(changedHtmlStr);
             } else {
                 console.log('Failed to fetch page: ', response.status);
             }
