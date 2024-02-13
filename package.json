@@ -3,6 +3,7 @@
     "start": "nodemon path.js"
   },
   "dependencies": {
+    "jsdom": "^24.0.0",
     "nodemon": "^3.0.3"
   }
 }

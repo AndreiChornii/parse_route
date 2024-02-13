@@ -1,4 +1,6 @@
 const http = require("http");
+const jsdom = require('jsdom');
+const { JSDOM } = jsdom;
 
 const host = 'localhost';
 const port = 8000;
@@ -43,6 +45,18 @@ activeRoute.routes = {
 activeRoute.route = null;
 activeRoute.action = null;
 activeRoute.data = [];
+activeRoute.dom = null;
+activeRoute.changeHtml = function (node, attribute) {
+    // console.log("node:" + node + " attribute:" + attribute);
+    let links = this.dom.window.document.querySelectorAll(node);
+    links.forEach(link => {
+        let attr = link.getAttribute(attribute);
+        if(attr && attr.substring(0,1) === '/'){
+            attr = 'https://secure.ubki.ua' + attr;
+            link.setAttribute(attribute, attr);
+        }
+    });
+}
 activeRoute.parseRouteData = function (urlParts, routeParts) {
     for (i = 0; i < routeParts.length; i++) {
         routePart = routeParts[i];
@@ -88,7 +102,7 @@ activeRoute.parseRoute = function () {
         this.action = this.parseRouteWithParams();
     }
 };
-activeRoute.requestListener = function (req, res) {
+activeRoute.requestListener = async function (req, res) {
     this.route = decodeURI(req.url);
     lang = this.route.substring(0, 3);
 
@@ -103,13 +117,46 @@ activeRoute.requestListener = function (req, res) {
         this.parseRoute();
         console.log(this);
         if (this.action !== -1) {
-            res.writeHead(200);
-            let rez = {
-                action: "",
-                data: []
-            };
-            // console.dir(rez);
-            res.end(JSON.stringify({ action: this.action, data: this.data }));
+            // res.writeHead(200);
+            // res.end(JSON.stringify({ action: this.action, data: this.data }));
+            let url = 'https://secure.ubki.ua/b2/ubkireport/opendata/00906858?lng=UA';
+            let response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'text/html; charset=utf-8'
+                }
+            });
+            if( response.ok){
+                let htmlStr = await response.text();
+                // console.log('htmlStr:' + htmlStr);
+                // let corrected_page = page.replace(/<link href="//g, '<link href="https://secure.ubki.ua/');
+                // console.log('corrected_page:' + corrected_page);
+                // const parser = new DOMParser();
+                // const html = parser.parseFromString(htmlStr, "text/html");
+                
+                
+                this.dom = new JSDOM(htmlStr);
+
+                const nodeAttr = {
+                    'link': 'href',
+                    'script': 'src',
+                    'img': 'src'
+                };
+
+                // nodeAttr.forEach(this.changeHtml);
+                for (let index in nodeAttr) {
+                    this.changeHtml(index, nodeAttr[index]);
+                }
+
+                let changedHtmlStr = this.dom.serialize();
+                changedHtmlStr = changedHtmlStr.replaceAll('jQuery.ajax({ url: "/', 'jQuery.ajax({ url: "https://secure.ubki.ua/');
+                console.log('changedHtmlStr:' + changedHtmlStr);
+                res.setHeader("Content-Type", "application/json");
+                res.writeHead(200);
+                res.end(JSON.stringify({ action: this.action, data: this.data }));
+            } else {
+                console.log('Failed to fetch page: ', response.status);
+            }
         } else {
             res.setHeader("Content-Type", "application/json");
             res.writeHead(404);
