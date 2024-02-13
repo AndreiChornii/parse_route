@@ -25,7 +25,7 @@ activeRoute.routes = {
     '/ua/sources': 'uaSources',
     '/ua/about-company': 'uaAbout-company',
     '/en': 'enEmpty',
-    '/en/{{inn}}': 'enInn',
+    '/en/{{inn}}': 'https://secure.ubki.ua/b2/ubkireport/opendata/',
     '/en/sign_in': 'enSign_in',
     '/en/archive/order': 'enArchiveOrder',
     '/en/archive/message': 'enArchiveMessage',
@@ -46,6 +46,11 @@ activeRoute.route = null;
 activeRoute.action = null;
 activeRoute.data = [];
 activeRoute.dom = null;
+activeRoute.lng = null;
+activeRoute.response = null;
+activeRoute.uaInn = function (){
+    
+}
 activeRoute.changeHtml = function (node, attribute) {
     // console.log("node:" + node + " attribute:" + attribute);
     let links = this.dom.window.document.querySelectorAll(node);
@@ -70,7 +75,7 @@ activeRoute.parseRouteData = function (urlParts, routeParts) {
 activeRoute.parseRouteWithParams = function () {
     parts = this.route.substring(1).split('/');
     routeMask = parts.map(part => {
-        if ((typeof +part === "number") && (Number.isInteger(+part)) && (part >= 10000000) && (part <= 9999999999)) return "[inn]";
+        if ((typeof +part === "number") && (Number.isInteger(+part)) && (+part >= 0) && (+part <= 9999999999)) return "[inn]";
         else if ((part.length === 1) && (/^[а-яіїєa-z]$/iu.test(part.trim()))) return "[letter]";
         else if (/^[А-ЯІЇЄA-Z]{1}[а-яіїєa-z]{1,}$/u.test(part.trim())) return "[city]";
         else return part;
@@ -113,27 +118,22 @@ activeRoute.requestListener = async function (req, res) {
         res.writeHead(301, { 'Location': encodeURI(this.route) });
         res.end();
     } else {
-        res.setHeader("Content-Type", "application/json");
+        this.lng = this.route.substring(1, 3);
         this.parseRoute();
         console.log(this);
         if (this.action !== -1) {
-            // res.writeHead(200);
-            // res.end(JSON.stringify({ action: this.action, data: this.data }));
-            let url = 'https://secure.ubki.ua/b2/ubkireport/opendata/00906858?lng=UA';
-            let response = await fetch(url, {
+            // let url = 'https://secure.ubki.ua/b2/ubkireport/opendata/00906858?lng=UA';
+            // this.queryToOrigin();
+
+            this.response = await fetch(this.action + this.data[0].inn + '?lng=' + this.lng, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'text/html; charset=utf-8'
                 }
             });
-            if( response.ok){
-                let htmlStr = await response.text();
-                // console.log('htmlStr:' + htmlStr);
-                // let corrected_page = page.replace(/<link href="//g, '<link href="https://secure.ubki.ua/');
-                // console.log('corrected_page:' + corrected_page);
-                // const parser = new DOMParser();
-                // const html = parser.parseFromString(htmlStr, "text/html");
-                
+
+            if( this.response.ok){
+                let htmlStr = await this.response.text();                
                 
                 this.dom = new JSDOM(htmlStr);
 
@@ -150,10 +150,13 @@ activeRoute.requestListener = async function (req, res) {
 
                 let changedHtmlStr = this.dom.serialize();
                 changedHtmlStr = changedHtmlStr.replaceAll('jQuery.ajax({ url: "/', 'jQuery.ajax({ url: "https://secure.ubki.ua/');
-                console.log('changedHtmlStr:' + changedHtmlStr);
+                // console.log('changedHtmlStr:' + changedHtmlStr);
                 res.setHeader("Content-Type", "application/json");
                 res.writeHead(200);
-                res.end(JSON.stringify({ action: this.action, data: this.data }));
+                res.end(JSON.stringify({ action: this.action, data: this.data, lng: this.lng }));
+                // res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                // res.writeHead(200);
+                // res.end(changedHtmlStr);
             } else {
                 console.log('Failed to fetch page: ', response.status);
             }
